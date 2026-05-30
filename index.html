@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>釣り鐘 周波数＋音量 ログ記録アプリ</title>
+<title>釣り鐘 周波数＋音量 ログ記録（しきい値付き）</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   body {
@@ -45,11 +45,20 @@
     border: 1px solid #ccc;
     font-size: 0.9rem;
   }
+  #thresholdBox {
+    margin: 10px 0;
+    font-size: 1rem;
+  }
 </style>
 </head>
 <body>
 
-<h1>釣り鐘 周波数＋音量 ログ記録アプリ</h1>
+<h1>釣り鐘 周波数＋音量 ログ記録（しきい値付き）</h1>
+
+<div id="thresholdBox">
+  音量しきい値（0〜1）：
+  <input type="number" id="threshold" value="0.20" step="0.01" min="0" max="1">
+</div>
 
 <div>ピーク周波数</div>
 <div id="peakFreq">-- Hz</div>
@@ -63,7 +72,7 @@
 
 <canvas id="canvas"></canvas>
 
-<h3>ログ</h3>
+<h3>ログ（しきい値以上のみ記録）</h3>
 <div id="logArea"></div>
 
 <script>
@@ -77,6 +86,7 @@ const ctx = canvas.getContext("2d");
 const peakFreqEl = document.getElementById("peakFreq");
 const volumeEl = document.getElementById("volume");
 const logArea = document.getElementById("logArea");
+const thresholdInput = document.getElementById("threshold");
 
 document.getElementById("startBtn").onclick = start;
 document.getElementById("stopBtn").onclick = stop;
@@ -167,13 +177,17 @@ function draw() {
   const volume = rms.toFixed(3);
   volumeEl.textContent = volume;
 
+  const threshold = parseFloat(thresholdInput.value);
+
   const now = Date.now();
   if (now - lastLogTime >= 1000) {
-    const timeStr = new Date().toLocaleTimeString();
-    const line = `${timeStr}, ${freq}, ${volume}`;
-    logData.push(line);
-    logArea.innerHTML += line + "<br>";
-    logArea.scrollTop = logArea.scrollHeight;
+    if (rms >= threshold) {
+      const timeStr = new Date().toLocaleTimeString();
+      const line = `${timeStr}, ${freq}, ${volume}`;
+      logData.push(line);
+      logArea.innerHTML += line + "<br>";
+      logArea.scrollTop = logArea.scrollHeight;
+    }
     lastLogTime = now;
   }
 }
@@ -187,7 +201,7 @@ function downloadCSV() {
 
   const a = document.createElement("a");
   a.href = url;
-  a.download = "bell_log.csv";
+  a.download = "bell_log_threshold.csv";
   a.click();
 
   URL.revokeObjectURL(url);
