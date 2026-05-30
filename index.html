@@ -2,27 +2,22 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>釣り鐘 周波数＋音量測定アプリ</title>
+<title>釣り鐘サウンドカウンター</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   body {
     font-family: system-ui, sans-serif;
     text-align: center;
-    padding: 10px;
+    padding: 20px;
     background: #f5f5f5;
   }
-  h1 { font-size: 1.3rem; }
-  #peakFreq, #volume {
-    font-size: 1.8rem;
-    margin: 10px 0;
-    color: #007bff;
+  h1 {
+    font-size: 1.4rem;
+    margin-bottom: 0.5rem;
   }
-  canvas {
-    width: 100%;
-    height: 200px;
-    background: #fff;
-    border: 1px solid #ccc;
-    margin-top: 10px;
+  #count {
+    font-size: 3rem;
+    margin: 1rem 0;
   }
   button {
     font-size: 1.1rem;
@@ -34,124 +29,129 @@
   }
   #startBtn { background: #007bff; }
   #stopBtn  { background: #6c757d; }
+  #resetBtn { background: #dc3545; }
+  #status {
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    color: #555;
+  }
 </style>
 </head>
 <body>
-
-<h1>釣り鐘 周波数＋音量測定アプリ</h1>
-
-<div>ピーク周波数</div>
-<div id="peakFreq">-- Hz</div>
-
-<div>音量（0〜1）</div>
-<div id="volume">--</div>
+<h1>釣り鐘サウンドカウンター</h1>
+<div>カウント</div>
+<div id="count">0</div>
 
 <button id="startBtn">開始</button>
 <button id="stopBtn" disabled>停止</button>
+<button id="resetBtn">リセット</button>
 
-<canvas id="canvas"></canvas>
+<div id="status">待機中</div>
 
 <script>
-let audioContext, analyser, timeAnalyser, freqData, timeData, mediaStream;
-let running = false;
+  let audioContext = null;
+  let analyser = null;
+  let dataArray = null;
+  let mediaStream = null;
+  let running = false;
+  let count = 0;
 
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-const peakFreqEl = document.getElementById("peakFreq");
-const volumeEl = document.getElementById("volume");
+  // 釣り鐘判定用パラメータ（必要に応じて調整）
+  const MIN_VOLUME = 0.25;        // 音量しきい値（0〜1くらいの感覚）
+  const BELL_MIN_FREQ = 400;      // 釣り鐘の主成分がありそうな下限周波数(Hz)
+  const BELL_MAX_FREQ = 1200;     // 上限周波数(Hz)
+  const COOLDOWN_MS = 3000;       // 1回カウントしたあとのクールタイム
+  let lastHitTime = 0;
 
-document.getElementById("startBtn").onclick = start;
-document.getElementById("stopBtn").onclick = stop;
+  const countEl = document.getElementById('count');
+  const statusEl = document.getElementById('status');
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn  = document.getElementById('stopBtn');
+  const resetBtn = document.getElementById('resetBtn');
 
-async function start() {
-  if (running) return;
+  startBtn.addEventListener('click', start);
+  stopBtn.addEventListener('click', stop);
+  resetBtn.addEventListener('click', () => {
+    count = 0;
+    countEl.textContent = count;
+  });
 
-  try {
-    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch (e) {
-    alert("マイクアクセスが拒否されました。設定を確認してください。");
-    return;
-  }
-
-  audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  const source = audioContext.createMediaStreamSource(mediaStream);
-
-  // 周波数解析用
-  analyser = audioContext.createAnalyser();
-  analyser.fftSize = 2048;
-  freqData = new Uint8Array(analyser.frequencyBinCount);
-
-  // 音量解析用（波形データ）
-  timeAnalyser = audioContext.createAnalyser();
-  timeAnalyser.fftSize = 2048;
-  timeData = new Uint8Array(timeAnalyser.fftSize);
-
-  source.connect(analyser);
-  source.connect(timeAnalyser);
-
-  running = true;
-  document.getElementById("startBtn").disabled = true;
-  document.getElementById("stopBtn").disabled = false;
-
-  draw();
-}
-
-function stop() {
-  running = false;
-  document.getElementById("startBtn").disabled = false;
-  document.getElementById("stopBtn").disabled = true;
-
-  if (mediaStream) {
-    mediaStream.getTracks().forEach(t => t.stop());
-  }
-  if (audioContext) audioContext.close();
-}
-
-function draw() {
-  if (!running) return;
-
-  requestAnimationFrame(draw);
-
-  analyser.getByteFrequencyData(freqData);
-  timeAnalyser.getByteTimeDomainData(timeData);
-
-  const width = canvas.width;
-  const height = canvas.height;
-  ctx.clearRect(0, 0, width, height);
-
-  const barWidth = width / freqData.length;
-
-  let maxVal = 0;
-  let maxIndex = 0;
-
-  for (let i = 0; i < freqData.length; i++) {
-    const value = freqData[i];
-    if (value > maxVal) {
-      maxVal = value;
-      maxIndex = i;
+  async function start() {
+    if (running) return;
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) {
+      alert('マイクへのアクセスが許可されませんでした。設定を確認してください。');
+      return;
     }
 
-    const barHeight = (value / 255) * height;
-    ctx.fillStyle = "#007bff";
-    ctx.fillRect(i * barWidth, height - barHeight, barWidth, barHeight);
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioContext.createMediaStreamSource(mediaStream);
+
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    const bufferLength = analyser.frequencyBinCount;
+    dataArray = new Uint8Array(bufferLength);
+
+    source.connect(analyser);
+
+    running = true;
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    statusEl.textContent = '計測中… 釣り鐘を鳴らしてテストしてください。';
+
+    analyzeLoop();
   }
 
-  // 周波数計算
-  const sampleRate = audioContext.sampleRate;
-  const freq = Math.round(maxIndex * (sampleRate / analyser.fftSize));
-  peakFreqEl.textContent = freq + " Hz";
+  function stop() {
+    running = false;
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    statusEl.textContent = '停止中';
 
-  // 音量計算（0〜1）
-  let sum = 0;
-  for (let i = 0; i < timeData.length; i++) {
-    const v = (timeData[i] - 128) / 128; // -1〜1 に正規化
-    sum += v * v;
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(t => t.stop());
+      mediaStream = null;
+    }
+    if (audioContext) {
+      audioContext.close();
+      audioContext = null;
+    }
   }
-  const rms = Math.sqrt(sum / timeData.length); // 実効値
-  const volume = rms.toFixed(3);
-  volumeEl.textContent = volume;
-}
+
+  function analyzeLoop() {
+    if (!running || !analyser) return;
+
+    analyser.getByteFrequencyData(dataArray);
+
+    const sampleRate = audioContext.sampleRate;
+    const binSize = sampleRate / analyser.fftSize;
+
+    // 釣り鐘の周波数帯だけを見る
+    let maxInBand = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const freq = i * binSize;
+      if (freq >= BELL_MIN_FREQ && freq <= BELL_MAX_FREQ) {
+        if (dataArray[i] > maxInBand) {
+          maxInBand = dataArray[i];
+        }
+      }
+    }
+
+    // 0〜255 を 0〜1 に正規化
+    const volumeInBand = maxInBand / 255;
+
+    const now = performance.now();
+    if (volumeInBand > MIN_VOLUME && (now - lastHitTime) > COOLDOWN_MS) {
+      // 釣り鐘が鳴ったと判定
+      count++;
+      countEl.textContent = count;
+      lastHitTime = now;
+      statusEl.textContent = '釣り鐘を検出しました！';
+    }
+
+    requestAnimationFrame(analyzeLoop);
+  }
 </script>
-
 </body>
 </html>
