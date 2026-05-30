@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>釣り鐘 周波数＋音量測定アプリ</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    text-align: center;
+    padding: 10px;
+    background: #f5f5f5;
+  }
+  h1 { font-size: 1.3rem; }
+  #peakFreq, #volume {
+    font-size: 1.8rem;
+    margin: 10px 0;
+    color: #007bff;
+  }
+  canvas {
+    width: 100%;
+    height: 200px;
+    background: #fff;
+    border: 1px solid #ccc;
+    margin-top: 10px;
+  }
+  button {
+    font-size: 1.1rem;
+    padding: 0.6rem 1.4rem;
+    margin: 0.4rem;
+    border-radius: 6px;
+    border: none;
+    color: #fff;
+  }
+  #startBtn { background: #007bff; }
+  #stopBtn  { background: #6c757d; }
+</style>
+</head>
+<body>
+
+<h1>釣り鐘 周波数＋音量測定アプリ</h1>
+
+<div>ピーク周波数</div>
+<div id="peakFreq">-- Hz</div>
+
+<div>音量（0〜1）</div>
+<div id="volume">--</div>
+
+<button id="startBtn">開始</button>
+<button id="stopBtn" disabled>停止</button>
+
+<canvas id="canvas"></canvas>
+
+<script>
+let audioContext, analyser, timeAnalyser, freqData, timeData, mediaStream;
+let running = false;
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const peakFreqEl = document.getElementById("peakFreq");
+const volumeEl = document.getElementById("volume");
+
+document.getElementById("startBtn").onclick = start;
+document.getElementById("stopBtn").onclick = stop;
+
+async function start() {
+  if (running) return;
+
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    alert("マイクアクセスが拒否されました。設定を確認してください。");
+    return;
+  }
+
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const source = audioContext.createMediaStreamSource(mediaStream);
+
+  // 周波数解析用
+  analyser = audioContext.createAnalyser();
+  analyser.fftSize = 2048;
+  freqData = new Uint8Array(analyser.frequencyBinCount);
+
+  // 音量解析用（波形データ）
+  timeAnalyser = audioContext.createAnalyser();
+  timeAnalyser.fftSize = 2048;
+  timeData = new Uint8Array(timeAnalyser.fftSize);
+
+  source.connect(analyser);
+  source.connect(timeAnalyser);
+
+  running = true;
+  document.getElementById("startBtn").disabled = true;
+  document.getElementById("stopBtn").disabled = false;
+
+  draw();
+}
+
+function stop() {
+  running = false;
+  document.getElementById("startBtn").disabled = false;
+  document.getElementById("stopBtn").disabled = true;
+
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(t => t.stop());
+  }
+  if (audioContext) audioContext.close();
+}
+
+function draw() {
+  if (!running) return;
+
+  requestAnimationFrame(draw);
+
+  analyser.getByteFrequencyData(freqData);
+  timeAnalyser.getByteTimeDomainData(timeData);
+
+  const width = canvas.width;
+  const height = canvas.height;
+  ctx.clearRect(0, 0, width, height);
+
+  const barWidth = width / freqData.length;
+
+  let maxVal = 0;
+  let maxIndex = 0;
+
+  for (let i = 0; i < freqData.length; i++) {
+    const value = freqData[i];
+    if (value > maxVal) {
+      maxVal = value;
+      maxIndex = i;
+    }
+
+    const barHeight = (value / 255) * height;
+    ctx.fillStyle = "#007bff";
+    ctx.fillRect(i * barWidth, height - barHeight, barWidth, barHeight);
+  }
+
+  // 周波数計算
+  const sampleRate = audioContext.sampleRate;
+  const freq = Math.round(maxIndex * (sampleRate / analyser.fftSize));
+  peakFreqEl.textContent = freq + " Hz";
+
+  // 音量計算（0〜1）
+  let sum = 0;
+  for (let i = 0; i < timeData.length; i++) {
+    const v = (timeData[i] - 128) / 128; // -1〜1 に正規化
+    sum += v * v;
+  }
+  const rms = Math.sqrt(sum / timeData.length); // 実効値
+  const volume = rms.toFixed(3);
+  volumeEl.textContent = volume;
+}
+</script>
+
+</body>
+</html>
