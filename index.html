@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>タイミングガイド & 鐘カウンター PRO</title>
+    <title>タイミングガイド & カウンター </title>
     <style>
         /* ベーススタイル */
         * { box-sizing: border-box; }
@@ -55,22 +55,22 @@
 
         /* --- タイミングガイド用スタイル --- */
         .timing-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px; }
-        .now-time-large { font-size: 2.2em; font-weight: bold; color: #fff; font-family: monospace; }
-        .status-badge { background: #333; padding: 4px 10px; border-radius: 4px; font-size: 1.1em; color: #ffb300; font-weight: bold; }
+        .now-time-large { font-size: 2.0em; font-weight: bold; color: #fff; font-family: monospace; }
+        .status-badge { background: #333; padding: 4px 5px; border-radius: 4px; font-size: 1.0em; color: #ffb300; font-weight: bold; }
         .countdown-text { font-size: 1.4em; color: #00e676; font-weight: bold; font-family: monospace; min-width: 100px; text-align: right;}
         
         .timing-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 12px;
-            margin-bottom: 12px;
+            gap: 3px;
+            margin-bottom: 3px;
             background: #252525;
-            padding: 10px;
+            padding: 3px;
             border-radius: 6px;
         }
         .timing-grid-item { display: flex; flex-direction: column; gap: 4px; }
         .timing-label { font-size: 12px; color: #aaa; }
-        .timing-input { font-size: 16px; padding: 8px; border-radius: 4px; border: 1px solid #555; background: #333; color: white; }
+        .timing-input { font-size: 16px; padding: 4px; border-radius: 4px; border: 1px solid #555; background: #333; color: white; }
         
         .action-row { display: flex; gap: 16px; justify-content: center; margin-bottom: 12px; }
         .action-row button { flex: 1; max-width: 200px; font-size: 1.2em; }
@@ -107,8 +107,7 @@
 
 <div class="app-container">
 
-    <div class="panel module-timing">
-        <h2>タイミングガイド</h2>
+
         
         <div class="timing-header">
             <div id="nowTime" class="now-time-large">--:--:--</div>
@@ -118,7 +117,7 @@
 
         <div class="timing-grid">
             <div class="timing-grid-item">
-                <span class="timing-label">開始時刻</span>
+                <span class="timing-label">タイミングガイド開始時刻</span>
                 <input type="time" id="startTime" class="timing-input" value="10:00" step="1">
             </div>
             <div class="timing-grid-item">
@@ -164,15 +163,13 @@
             <button id="stopBtn" class="btn-red" disabled>停止</button>
         </div>
 
-        <div class="notes">
-            <div>☆画面が消えるとストップするため、設定→ディスプレイ→画面のタイムアウト→30分等に設定して下さい。</div>
-            <div>☆時間設定を削除すると10秒前から開始できます。</div>
+
         </div>
     </div>
 
     <div class="panel module-counter">
         <div class="header-flex">
-            <h2>鐘カウンター PRO</h2>
+            <h2>カウンター</h2>
             <div class="counter-controls">
                 <button class="btn-gray btn-small" onclick="changeCount(-1)">−1</button>
                 <button class="btn-small" onclick="changeCount(1)">＋1</button>
@@ -233,11 +230,11 @@
                 <button class="btn-gray btn-small" onclick="resetPeaks()">ピークリセット</button>
             </div>
             <div class="settings-grid">
-                <div class="setting-item">ゲイン(倍率) <input type="number" id="set-gain" class="setting-input" value="1.0" step="0.5" onchange="saveSettings()"></div>
+                <div class="setting-item">ゲイン(倍率) <input type="number" id="set-gain" class="setting-input" value="0.02" step="0.01" onchange="saveSettings()"></div>
                 <div class="setting-item">待機時間(秒) <input type="number" id="set-cooldown" class="setting-input" value="5.0" step="0.5" onchange="saveSettings()"></div>
-                <div class="setting-item">LOW しきい値 <input type="number" id="th-low" class="setting-input" value="0.60" step="0.01" onchange="saveSettings()"></div>
-                <div class="setting-item">MID しきい値 <input type="number" id="th-mid" class="setting-input" value="0.40" step="0.01" onchange="saveSettings()"></div>
-                <div class="setting-item">HIGH しきい値<input type="number" id="th-high" class="setting-input" value="0.30" step="0.01" onchange="saveSettings()"></div>
+                <div class="setting-item">LOW しきい値 <input type="number" id="th-low" class="setting-input" value="0.40" step="0.01" onchange="saveSettings()"></div>
+                <div class="setting-item">MID しきい値 <input type="number" id="th-mid" class="setting-input" value="0.30" step="0.01" onchange="saveSettings()"></div>
+                <div class="setting-item">HIGH しきい値<input type="number" id="th-high" class="setting-input" value="0.20" step="0.01" onchange="saveSettings()"></div>
             </div>
         </div>
 
@@ -323,13 +320,13 @@ function initTimingGuide() {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         const now = ctx.currentTime;
-        osc.frequency.value = 880;
-        gain.gain.setValueAtTime(1.9, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 1.25);
+        osc.frequency.value = 1880;
+        gain.gain.setValueAtTime(4, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 2);
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start(now);
-        osc.stop(now + 1.25);
+        osc.stop(now + 2);
         setTimeout(() => ctx.close(), 300);
     }
 
@@ -446,7 +443,7 @@ function initTimingGuide() {
 }
 
 // ==========================================
-// モジュール 2: 鐘カウンター PRO ロジック
+// モジュール 2: カウンター  ロジック
 // ==========================================
 let count = 0;
 let isRunning = false;
@@ -480,11 +477,11 @@ function initCounterPro() {
         const saved = localStorage.getItem(id);
         if(saved !== null) document.getElementById(id).value = saved;
     };
-    loadVal('set-gain', '1.0');
+    loadVal('set-gain', '0.02');
     loadVal('set-cooldown', '5.0');
-    loadVal('th-low', '0.60');
-    loadVal('th-mid', '0.40');
-    loadVal('th-high', '0.30');
+    loadVal('th-low', '0.40');
+    loadVal('th-mid', '0.30');
+    loadVal('th-high', '0.20');
     
     updateThresholdLines();
 
@@ -505,7 +502,7 @@ function saveSettings() {
         localStorage.setItem(id, document.getElementById(id).value);
     });
     updateThresholdLines();
-    if(gainNode) gainNode.gain.value = parseFloat(document.getElementById('set-gain').value) || 1.0;
+    if(gainNode) gainNode.gain.value = parseFloat(document.getElementById('set-gain').value) || 0.02;
 }
 
 function updateThresholdLines() {
@@ -576,7 +573,7 @@ async function startMic(isAutoResume) {
         dataArray = new Uint8Array(analyser.frequencyBinCount);
 
         gainNode = audioCtx.createGain();
-        gainNode.gain.value = parseFloat(document.getElementById('set-gain').value) || 1.0;
+        gainNode.gain.value = parseFloat(document.getElementById('set-gain').value) || 0.02;
 
         const microphone = audioCtx.createMediaStreamSource(stream);
         microphone.connect(gainNode);
