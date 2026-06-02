@@ -320,8 +320,8 @@ function playBell() {
     const now = ctx.currentTime;
 
     // 基音 + 倍音2つ
-    const freqs = [600, 900, 1200]; // 基音 + 1.5倍 + 2倍
-    const gains  = [1.0, 0.5, 0.2];  // 倍音は弱め
+    const freqs = [300, 450, 600]; // 基音 + 1.5倍 + 2倍
+    const gains  = [2.0, 0.5, 0.2];  // 倍音は弱め
 
     freqs.forEach((f, i) => {
         const osc = ctx.createOscillator();
